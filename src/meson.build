@@ -6,6 +6,7 @@ fluid_sources = [
 
 fluid_headers = [
   'fluid.h',
+  'fld-window.h'
 ]
 
 version_split = meson.project_version().split('.')
@@ -40,15 +41,55 @@ fluid_lib = shared_library('fluid-' + api_version,
 
 install_headers(fluid_headers, subdir: 'fluid')
 
+fluid_dep = declare_dependency(
+              sources: fluid_headers,
+         dependencies: fluid_deps,
+            link_with: fluid_lib,
+  include_directories: include_directories('.'),
+)
+
+fluid_package = 'fluid-@0@'.format(api_version)
+
+if get_option('with_introspection')
+
+  fluid_gir = gnome.generate_gir(fluid_lib,
+                sources: fluid_headers + fluid_sources,
+              nsversion: api_version,
+              namespace: 'Fluid',
+          symbol_prefix: 'fld',
+      identifier_prefix: 'Fld',
+              link_with: fluid_lib,
+               includes: ['Gio-2.0', 'Gtk-3.0'],
+                install: true,
+        install_dir_gir: girdir,
+    install_dir_typelib: typelibdir,
+        export_packages: fluid_package,
+             extra_args: [ '--c-include=fluid.h', '--quiet' ],
+  )
+
+  if get_option('with_vapi')
+
+    fluid_vapi = gnome.generate_vapi(fluid_package,
+            sources: fluid_gir[0],
+           packages: [ 'gio-2.0', 'gtk+-3.0' ],
+            install: true,
+        install_dir: vapidir,
+      metadata_dirs: [ meson.current_source_dir() ],
+    )
+
+  endif
+endif
+
 pkg = import('pkgconfig')
 
 pkg.generate(
-  description: 'Tools for adaptive applications',
+  description: 'Tools for fluid applications',
     libraries: fluid_lib,
          name: 'fluid',
-     filebase: 'fluid-' + api_version,
+     filebase: fluid_package,
       version: meson.project_version(),
       subdirs: 'fluid',
      requires: 'gtk+-3.0',
   install_dir: join_paths(get_option('libdir'), 'pkgconfig')
 )
+

@@ -1,0 +1,7 @@
+option('with_introspection', type: 'boolean', value: true)
+option('with_vapi', type: 'boolean', value: true)
+
+option('package_subdir', type: 'string',
+  description: 'Subdirectory to append to all installed files, for use as subproject'
+)
+
