@@ -1,0 +1,97 @@
+/* fluid-version.h.in
+ *
+ * Copyright 2018 Zander Brown
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#ifndef FLUID_VERSION_H
+#define FLUID_VERSION_H
+
+#if !defined(FLUID_INSIDE) && !defined(FLUID_COMPILATION)
+# error "Only <fluid.h> can be included directly."
+#endif
+
+/**
+ * SECTION:fluidversion
+ * @short_description: fluid version checking
+ *
+ * fluid provides macros to check the version of the library
+ * at compile-time
+ */
+
+/**
+ * FLUID_MAJOR_VERSION:
+ *
+ * fluid major version component (e.g. 1 if %FLUID_VERSION is 1.2.3)
+ */
+#define FLUID_MAJOR_VERSION (@MAJOR_VERSION@)
+
+/**
+ * FLUID_MINOR_VERSION:
+ *
+ * fluid minor version component (e.g. 2 if %FLUID_VERSION is 1.2.3)
+ */
+#define FLUID_MINOR_VERSION (@MINOR_VERSION@)
+
+/**
+ * FLUID_MICRO_VERSION:
+ *
+ * fluid micro version component (e.g. 3 if %FLUID_VERSION is 1.2.3)
+ */
+#define FLUID_MICRO_VERSION (@MICRO_VERSION@)
+
+/**
+ * FLUID_VERSION
+ *
+ * fluid version.
+ */
+#define FLUID_VERSION (@VERSION@)
+
+/**
+ * FLUID_VERSION_S:
+ *
+ * fluid version, encoded as a string, useful for printing and
+ * concatenation.
+ */
+#define FLUID_VERSION_S "@VERSION@"
+
+#define FLUID_ENCODE_VERSION(major,minor,micro) \
+        ((major) << 24 | (minor) << 16 | (micro) << 8)
+
+/**
+ * FLUID_VERSION_HEX:
+ *
+ * fluid version, encoded as an hexadecimal number, useful for
+ * integer comparisons.
+ */
+#define FLUID_VERSION_HEX \
+        (FLUID_ENCODE_VERSION (FLUID_MAJOR_VERSION, FLUID_MINOR_VERSION, FLUID_MICRO_VERSION))
+
+/**
+ * FLUID_CHECK_VERSION:
+ * @major: required major version
+ * @minor: required minor version
+ * @micro: required micro version
+ *
+ * Compile-time version checking. Evaluates to %TRUE if the version
+ * of fluid is greater than the required one.
+ */
+#define FLUID_CHECK_VERSION(major,minor,micro)   \
+        (FLUID_MAJOR_VERSION > (major) || \
+         (FLUID_MAJOR_VERSION == (major) && FLUID_MINOR_VERSION > (minor)) || \
+         (FLUID_MAJOR_VERSION == (major) && FLUID_MINOR_VERSION == (minor) && \
+          FLUID_MICRO_VERSION >= (micro)))
+
+#endif /* FLUID_VERSION_H */
