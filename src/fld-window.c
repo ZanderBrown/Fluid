@@ -2,6 +2,7 @@
 
 /* Ideally this would be coming from GtkSettings or similar */
 #define SNAP_AT 360
+#define COMPACT_STYLE_CLASS "compact"
 
 /**
  * SECTION:fld-application-window
@@ -76,7 +77,13 @@ fld_application_window_size_allocate (GtkWidget     *widget,
   priv->is_compact = alloc->width <= SNAP_AT;
   
   if (was != priv->is_compact)
-    g_object_notify_by_pspec (G_OBJECT (self), properties [PROP_COMPACT]);
+    {
+      if (priv->is_compact)
+        gtk_style_context_add_class (gtk_widget_get_style_context (widget), COMPACT_STYLE_CLASS);
+      else
+        gtk_style_context_remove_class (gtk_widget_get_style_context (widget), COMPACT_STYLE_CLASS);
+      g_object_notify_by_pspec (G_OBJECT (self), properties [PROP_COMPACT]);
+    }
 }
 
 static void
