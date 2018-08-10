@@ -21,6 +21,13 @@ class App : Gtk.Application {
     public override void activate () {
         new Win (this).present ();
     }
+
+    public override void startup () {
+        base.startup();
+        var styles = new Gtk.CssProvider();
+        styles.load_from_resource("/org/gnome/example/styles.css");
+        Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), styles, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
+    }
 }
 
 int main (string[] args) {

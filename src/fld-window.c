@@ -66,8 +66,7 @@ fld_application_window_get_property (GObject    *object,
 
 static void
 fld_application_window_size_allocate (GtkWidget     *widget,
-                                      GtkAllocation *alloc,
-                                      gpointer       data)
+                                      GtkAllocation *alloc)
 {
   FldApplicationWindow *self = FLD_APPLICATION_WINDOW (widget);
   FldApplicationWindowPrivate *priv = fld_application_window_get_instance_private (self);
@@ -84,14 +83,19 @@ fld_application_window_size_allocate (GtkWidget     *widget,
         gtk_style_context_remove_class (gtk_widget_get_style_context (widget), COMPACT_STYLE_CLASS);
       g_object_notify_by_pspec (G_OBJECT (self), properties [PROP_COMPACT]);
     }
+
+  GTK_WIDGET_CLASS (fld_application_window_parent_class)->size_allocate (widget, alloc);
 }
 
 static void
 fld_application_window_class_init (FldApplicationWindowClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
+  GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
   
   object_class->get_property = fld_application_window_get_property;
+
+  widget_class->size_allocate = fld_application_window_size_allocate;
 
   klass->get_compact = fld_application_window_real_get_compact;
 
@@ -118,8 +122,6 @@ fld_application_window_init (FldApplicationWindow *self)
 {
   FldApplicationWindowPrivate *priv = fld_application_window_get_instance_private (self);
   priv->is_compact = FALSE;
-  
-  g_object_connect(self, "size-allocate", G_CALLBACK(fld_application_window_size_allocate), NULL);
 }
 
 /**

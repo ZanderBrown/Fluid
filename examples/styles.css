@@ -1,0 +1,18 @@
+window {
+  background: white;
+  color: black;
+}
+
+window.compact {
+  background: #e3e3e3;
+  transition: background .25s linear;
+}
+
+label {
+  text-shadow: red 0 -25px 0;
+  transition: text-shadow .25s linear;
+}
+
+.compact label {
+  text-shadow: blue 0 25px 0;
+}
