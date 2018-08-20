@@ -17,13 +17,93 @@
             <property name="label" translatable="yes">I'm Compact</property>
           </object>
         </child>
+        <child type="title">
+          <object class="FldSwitcher">
+            <property name="can_focus">False</property>
+            <property name="visible">True</property>
+            <property name="stack">content</property>
+          </object>
+        </child>
       </object>
     </child>
     <child>
-      <object class="GtkLabel">
+      <object class="GtkStack" id="content">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
-        <property name="label" translatable="yes">FldApplicationWindow</property>
+        <child>
+          <object class="GtkLabel">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label" translatable="yes">A</property>
+          </object>
+          <packing>
+            <property name="name">page0</property>
+            <property name="title" translatable="yes">A</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label" translatable="yes">B</property>
+          </object>
+          <packing>
+            <property name="name">page1</property>
+            <property name="title" translatable="yes">B</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label" translatable="yes">C</property>
+          </object>
+          <packing>
+            <property name="name">page2</property>
+            <property name="title" translatable="yes">C</property>
+            <property name="position">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label" translatable="yes">D</property>
+          </object>
+          <packing>
+            <property name="name">page3</property>
+            <property name="title" translatable="yes">D</property>
+            <property name="position">3</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label" translatable="yes">E</property>
+          </object>
+          <packing>
+            <property name="name">page4</property>
+            <property name="title" translatable="yes">E</property>
+            <property name="position">4</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label" translatable="yes">FldApplicationWindow</property>
+          </object>
+          <packing>
+            <property name="name">page5</property>
+            <property name="title" translatable="yes">F</property>
+            <property name="position">5</property>
+          </packing>
+        </child>
+        <style>
+          <class name="content"/>
+        </style>
       </object>
     </child>
   </template>

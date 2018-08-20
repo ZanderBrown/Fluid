@@ -8,11 +8,11 @@ window.compact {
   transition: background .25s linear;
 }
 
-label {
+.content label {
   text-shadow: red 0 -25px 0;
   transition: text-shadow .25s linear;
 }
 
-.compact label {
+.content .compact label {
   text-shadow: blue 0 25px 0;
 }

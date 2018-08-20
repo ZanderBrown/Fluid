@@ -100,7 +100,7 @@ fld_application_window_class_init (FldApplicationWindowClass *klass)
   klass->get_compact = fld_application_window_real_get_compact;
 
   /**
-   * DzlApplicationWindow:compact:
+   * FldApplicationWindow:compact:
    *
    * The "compact" property denotes if the window is in the compact
    * state. Listen to this property to make changes neccisary for
