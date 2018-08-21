@@ -2,11 +2,12 @@
 
 typedef struct
 {
-  GtkStack  *stack;
-  GtkWidget *switcher;
-  GtkWidget *label;
-  GtkWidget *selector;
-  GMenu     *menu;
+  GtkStack      *stack;
+  GtkWidget     *switcher;
+  GtkWidget     *label;
+  GtkWidget     *selector;
+  GMenu         *menu;
+  GSimpleAction *action;
 } FldSwitcherPrivate;
 
 enum {
@@ -20,6 +21,10 @@ G_DEFINE_TYPE_WITH_CODE (FldSwitcher, fld_switcher, GTK_TYPE_BIN,
 
 static GParamSpec *properties [N_PROPS];
 
+static void
+add_child (GtkWidget   *child,
+           FldSwitcher *self);
+
 static GtkStack *
 fld_switcher_real_get_stack (FldSwitcher *self)
 {
@@ -31,7 +36,23 @@ fld_switcher_real_get_stack (FldSwitcher *self)
 }
 
 static void
-add_child (GtkWidget *child,
+on_child_updated (GtkWidget   *child,
+                  GParamSpec  *pspec,
+                  FldSwitcher *self)
+{
+  FldSwitcherPrivate *priv = fld_switcher_get_instance_private (self);
+
+  GValue pos = G_VALUE_INIT;
+  g_value_init (&pos, G_TYPE_INT);
+  gtk_container_child_get_property (GTK_CONTAINER (priv->stack), child, "position", &pos);
+  gint position = g_value_get_int (&pos);
+
+  g_menu_remove (priv->menu, position);
+  add_child (child, self);
+}
+
+static void
+add_child (GtkWidget   *child,
            FldSwitcher *self)
 {
   g_assert (FLD_IS_SWITCHER (self));
@@ -55,7 +76,83 @@ add_child (GtkWidget *child,
 
   g_menu_insert (priv->menu, position, label, g_strdup_printf ("switch.page::%s", target));
 
-  g_message ("Child");
+  g_signal_connect (child, "child-notify::title",
+                    G_CALLBACK (on_child_updated), self);
+  g_signal_connect (child, "child-notify::needs-attention",
+                    G_CALLBACK (on_child_updated), self);
+  g_signal_connect (child, "notify::visible",
+                    G_CALLBACK (on_child_updated), self);
+  g_signal_connect (child, "child-notify::position",
+                    G_CALLBACK (on_child_updated), self);
+}
+
+static void
+remove_child (GtkWidget   *child,
+              FldSwitcher *self)
+{
+  FldSwitcherPrivate *priv = fld_switcher_get_instance_private (self);
+
+  GValue pos = G_VALUE_INIT;
+  g_value_init (&pos, G_TYPE_INT);
+  gtk_container_child_get_property (GTK_CONTAINER (priv->stack), child, "position", &pos);
+  gint position = g_value_get_int (&pos);
+
+  g_signal_handlers_disconnect_by_func (child, on_child_updated, self);
+
+  g_menu_remove (priv->menu, position);
+}
+
+static void
+on_child_changed (GtkWidget       *widget,
+                  GParamSpec      *pspec,
+                  FldSwitcher     *self)
+{
+  FldSwitcherPrivate *priv = fld_switcher_get_instance_private (self);
+
+  const gchar* target = gtk_stack_get_visible_child_name (GTK_STACK (priv->stack));
+
+  g_action_change_state (G_ACTION (priv->action), g_variant_new_string (target));
+}
+
+static void
+on_stack_child_added (GtkContainer    *container,
+                      GtkWidget       *widget,
+                      FldSwitcher     *self)
+{
+  add_child (widget, self);
+}
+
+static void
+on_stack_child_removed (GtkContainer    *container,
+                        GtkWidget       *widget,
+                        FldSwitcher     *self)
+{
+  remove_child (widget, self);
+}
+
+static void
+disconnect_stack_signals (FldSwitcher *self)
+{
+  FldSwitcherPrivate *priv = fld_switcher_get_instance_private (self);
+
+  g_signal_handlers_disconnect_by_func (priv->stack, on_stack_child_added, self);
+  g_signal_handlers_disconnect_by_func (priv->stack, on_stack_child_removed, self);
+  g_signal_handlers_disconnect_by_func (priv->stack, on_child_changed, self);
+  g_signal_handlers_disconnect_by_func (priv->stack, disconnect_stack_signals, self);
+}
+
+static void
+connect_stack_signals (FldSwitcher *self)
+{
+  FldSwitcherPrivate *priv = fld_switcher_get_instance_private (self);
+  g_signal_connect_after (priv->stack, "add",
+                          G_CALLBACK (on_stack_child_added), self);
+  g_signal_connect_after (priv->stack, "remove",
+                          G_CALLBACK (on_stack_child_removed), self);
+  g_signal_connect (priv->stack, "notify::visible-child",
+                    G_CALLBACK (on_child_changed), self);
+  g_signal_connect_swapped (priv->stack, "destroy",
+                            G_CALLBACK (disconnect_stack_signals), self);
 }
 
 static void
@@ -69,6 +166,7 @@ fld_switcher_real_set_stack (FldSwitcher *self,
   priv->stack = stack;
 
   gtk_stack_switcher_set_stack (GTK_STACK_SWITCHER (priv->switcher), stack);
+  connect_stack_signals (self);
 
   gtk_container_foreach (GTK_CONTAINER (priv->stack), (GtkCallback)add_child, self);
 }
@@ -187,9 +285,9 @@ fld_switcher_class_init (FldSwitcherClass *klass)
 }
 
 static void
-select_item (GSimpleAction *act,
-             GVariant      *param,
-             FldSwitcher   *self)
+on_state_changed (GSimpleAction *act,
+                  GVariant      *param,
+                  FldSwitcher   *self)
 {
   g_return_if_fail (FLD_IS_SWITCHER (self));
   FldSwitcherPrivate *priv = fld_switcher_get_instance_private (self);
@@ -205,6 +303,8 @@ select_item (GSimpleAction *act,
   gtk_label_set_label (GTK_LABEL (priv->label), label);
 
   gtk_stack_set_visible_child_name (GTK_STACK (priv->stack), id);
+
+  g_simple_action_set_state (act, param);
 }
 
 static void
@@ -231,9 +331,11 @@ fld_switcher_init (FldSwitcher *self)
 
   GSimpleActionGroup *group = g_simple_action_group_new ();
 
-  GSimpleAction *act = g_simple_action_new ("page", G_VARIANT_TYPE_STRING);
-  g_action_map_add_action (G_ACTION_MAP (group), G_ACTION (act));
-  g_signal_connect (G_OBJECT (act), "activate", G_CALLBACK (select_item), self);
+  priv->action = g_simple_action_new_stateful ("page",
+                                               G_VARIANT_TYPE_STRING,
+                                               g_variant_new_string (""));
+  g_action_map_add_action (G_ACTION_MAP (group), G_ACTION (priv->action));
+  g_signal_connect (G_OBJECT (priv->action), "change-state", G_CALLBACK (on_state_changed), self);
   gtk_widget_insert_action_group (priv->selector, "switch", G_ACTION_GROUP (group));
 
   priv->menu = g_menu_new ();
