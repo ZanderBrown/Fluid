@@ -1,4 +1,5 @@
 #include "fld-switcher.h"
+#include "fld-stack-menu.h"
 
 typedef struct
 {
@@ -6,7 +7,7 @@ typedef struct
   GtkWidget     *switcher;
   GtkWidget     *label;
   GtkWidget     *selector;
-  GMenu         *menu;
+  FldStackMenu  *menu;
   GSimpleAction *action;
 } FldSwitcherPrivate;
 
@@ -21,10 +22,6 @@ G_DEFINE_TYPE_WITH_CODE (FldSwitcher, fld_switcher, GTK_TYPE_BIN,
 
 static GParamSpec *properties [N_PROPS];
 
-static void
-add_child (GtkWidget   *child,
-           FldSwitcher *self);
-
 static GtkStack *
 fld_switcher_real_get_stack (FldSwitcher *self)
 {
@@ -33,73 +30,6 @@ fld_switcher_real_get_stack (FldSwitcher *self)
   g_assert (FLD_IS_SWITCHER (self));
 
   return priv->stack;
-}
-
-static void
-on_child_updated (GtkWidget   *child,
-                  GParamSpec  *pspec,
-                  FldSwitcher *self)
-{
-  FldSwitcherPrivate *priv = fld_switcher_get_instance_private (self);
-
-  GValue pos = G_VALUE_INIT;
-  g_value_init (&pos, G_TYPE_INT);
-  gtk_container_child_get_property (GTK_CONTAINER (priv->stack), child, "position", &pos);
-  gint position = g_value_get_int (&pos);
-
-  g_menu_remove (priv->menu, position);
-  add_child (child, self);
-}
-
-static void
-add_child (GtkWidget   *child,
-           FldSwitcher *self)
-{
-  g_assert (FLD_IS_SWITCHER (self));
-
-  FldSwitcherPrivate *priv = fld_switcher_get_instance_private (self);
-
-  GValue title = G_VALUE_INIT;
-  g_value_init (&title, G_TYPE_STRING);
-  gtk_container_child_get_property (GTK_CONTAINER (priv->stack), child, "title", &title);
-  const gchar *label = g_value_get_string (&title);
-
-  GValue name = G_VALUE_INIT;
-  g_value_init (&name, G_TYPE_STRING);
-  gtk_container_child_get_property (GTK_CONTAINER (priv->stack), child, "name", &name);
-  const gchar *target = g_value_get_string (&name);
-
-  GValue pos = G_VALUE_INIT;
-  g_value_init (&pos, G_TYPE_INT);
-  gtk_container_child_get_property (GTK_CONTAINER (priv->stack), child, "position", &pos);
-  gint position = g_value_get_int (&pos);
-
-  g_menu_insert (priv->menu, position, label, g_strdup_printf ("switch.page::%s", target));
-
-  g_signal_connect (child, "child-notify::title",
-                    G_CALLBACK (on_child_updated), self);
-  g_signal_connect (child, "child-notify::needs-attention",
-                    G_CALLBACK (on_child_updated), self);
-  g_signal_connect (child, "notify::visible",
-                    G_CALLBACK (on_child_updated), self);
-  g_signal_connect (child, "child-notify::position",
-                    G_CALLBACK (on_child_updated), self);
-}
-
-static void
-remove_child (GtkWidget   *child,
-              FldSwitcher *self)
-{
-  FldSwitcherPrivate *priv = fld_switcher_get_instance_private (self);
-
-  GValue pos = G_VALUE_INIT;
-  g_value_init (&pos, G_TYPE_INT);
-  gtk_container_child_get_property (GTK_CONTAINER (priv->stack), child, "position", &pos);
-  gint position = g_value_get_int (&pos);
-
-  g_signal_handlers_disconnect_by_func (child, on_child_updated, self);
-
-  g_menu_remove (priv->menu, position);
 }
 
 static void
@@ -115,28 +45,10 @@ on_child_changed (GtkWidget       *widget,
 }
 
 static void
-on_stack_child_added (GtkContainer    *container,
-                      GtkWidget       *widget,
-                      FldSwitcher     *self)
-{
-  add_child (widget, self);
-}
-
-static void
-on_stack_child_removed (GtkContainer    *container,
-                        GtkWidget       *widget,
-                        FldSwitcher     *self)
-{
-  remove_child (widget, self);
-}
-
-static void
 disconnect_stack_signals (FldSwitcher *self)
 {
   FldSwitcherPrivate *priv = fld_switcher_get_instance_private (self);
 
-  g_signal_handlers_disconnect_by_func (priv->stack, on_stack_child_added, self);
-  g_signal_handlers_disconnect_by_func (priv->stack, on_stack_child_removed, self);
   g_signal_handlers_disconnect_by_func (priv->stack, on_child_changed, self);
   g_signal_handlers_disconnect_by_func (priv->stack, disconnect_stack_signals, self);
 }
@@ -145,10 +57,6 @@ static void
 connect_stack_signals (FldSwitcher *self)
 {
   FldSwitcherPrivate *priv = fld_switcher_get_instance_private (self);
-  g_signal_connect_after (priv->stack, "add",
-                          G_CALLBACK (on_stack_child_added), self);
-  g_signal_connect_after (priv->stack, "remove",
-                          G_CALLBACK (on_stack_child_removed), self);
   g_signal_connect (priv->stack, "notify::visible-child",
                     G_CALLBACK (on_child_changed), self);
   g_signal_connect_swapped (priv->stack, "destroy",
@@ -166,9 +74,9 @@ fld_switcher_real_set_stack (FldSwitcher *self,
   priv->stack = stack;
 
   gtk_stack_switcher_set_stack (GTK_STACK_SWITCHER (priv->switcher), stack);
+  fld_stack_menu_set_stack (priv->menu, stack);
   connect_stack_signals (self);
-
-  gtk_container_foreach (GTK_CONTAINER (priv->stack), (GtkCallback)add_child, self);
+  on_child_changed (GTK_WIDGET (priv->stack), NULL, self);
 }
 
 static void
@@ -338,7 +246,7 @@ fld_switcher_init (FldSwitcher *self)
   g_signal_connect (G_OBJECT (priv->action), "change-state", G_CALLBACK (on_state_changed), self);
   gtk_widget_insert_action_group (priv->selector, "switch", G_ACTION_GROUP (group));
 
-  priv->menu = g_menu_new ();
+  priv->menu = fld_stack_menu_new ();
   gtk_menu_button_set_menu_model (GTK_MENU_BUTTON (priv->selector), G_MENU_MODEL (priv->menu));
 }
 
@@ -373,5 +281,11 @@ fld_switcher_set_stack (FldSwitcher *self,
   FLD_SWITCHER_GET_CLASS (self)->set_stack (self, stack);
 
   g_object_notify (G_OBJECT (self), "stack");
+}
+
+GtkWidget *
+fld_switcher_new ()
+{
+  return g_object_new (FLD_TYPE_SWITCHER, NULL);
 }
 

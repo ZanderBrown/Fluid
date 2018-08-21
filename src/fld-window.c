@@ -142,3 +142,9 @@ fld_application_window_get_compact (FldApplicationWindow *self)
   return FLD_APPLICATION_WINDOW_GET_CLASS (self)->get_compact (self);
 }
 
+GtkWidget *
+fld_application_window_new ()
+{
+  return g_object_new (FLD_TYPE_APPLICATION_WINDOW, NULL);
+}
+

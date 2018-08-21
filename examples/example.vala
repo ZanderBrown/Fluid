@@ -3,8 +3,13 @@ class Win : Fld.ApplicationWindow {
     [GtkChild]
     Gtk.Label label;
 
+    [GtkChild]
+    Gtk.Stack content;
+
     construct {
         bind_property ("compact", label, "visible");
+        content.add (new Gtk.Label ("&"));
+        content.add (new Gtk.Label ("%"));
     }
 
     public Win (App app) {

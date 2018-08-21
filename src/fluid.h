@@ -25,6 +25,7 @@ G_BEGIN_DECLS
 #define FLUID_INSIDE
 # include "fluid-version.h"
 # include "fld-window.h"
+# include "fld-switcher.h"
 #undef FLUID_INSIDE
 
 G_END_DECLS

@@ -2,13 +2,15 @@ api_version = '0.1'
 
 fluid_sources = [
   'fld-window.c',
-  'fld-switcher.c'
+  'fld-switcher.c',
+  'fld-stack-menu.c'
 ]
 
 fluid_headers = [
   'fluid.h',
   'fld-window.h',
-  'fld-switcher.h'
+  'fld-switcher.h',
+  'fld-stack-menu.h'
 ]
 
 version_split = meson.project_version().split('.')
