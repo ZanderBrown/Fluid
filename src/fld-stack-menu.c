@@ -17,50 +17,44 @@ G_DEFINE_TYPE_WITH_CODE (FldStackMenu, fld_stack_menu, G_TYPE_MENU_MODEL,
 
 static GParamSpec *properties [N_PROPS];
 
-
-static void
-add_child (GtkWidget   *child,
-           FldStackMenu *self);
-
-static GtkStack *
-fld_stack_menu_real_get_stack (FldStackMenu *self)
+typedef struct
 {
-  FldStackMenuPrivate *priv = fld_stack_menu_get_instance_private (self);
+  GMenuModel *model;
+  gint        position;
+} ModEmit;
 
-  g_assert (FLD_IS_STACK_MENU (self));
-
-  return priv->stack;
+static gboolean
+emit_modified (ModEmit *data)
+{
+  g_message ("Emit modifed");
+  /* Hint this item was modifed it my marking one removed and another added */
+  g_menu_model_items_changed (data->model, data->position, 1, 1);
+  g_slice_free (ModEmit, data);
+  return G_SOURCE_REMOVE;
 }
 
-static void
-on_child_updated (GtkWidget   *child,
-                  GParamSpec  *pspec,
-                  FldStackMenu *self)
+static gboolean
+emit_removed (ModEmit *data)
 {
-  FldStackMenuPrivate *priv = fld_stack_menu_get_instance_private (self);
-
-  GValue pos = G_VALUE_INIT;
-  g_value_init (&pos, G_TYPE_INT);
-  gtk_container_child_get_property (GTK_CONTAINER (priv->stack), child, "position", &pos);
-  gint position = g_value_get_int (&pos);
-
-  priv->items = g_array_remove_index (priv->items, position);
-  g_menu_model_items_changed (G_MENU_MODEL (self), position, 1, 0);
-  add_child (child, self);
+  g_message ("Emit removed");
+  g_menu_model_items_changed (data->model, data->position, 1, 0);
+  g_slice_free (ModEmit, data);
+  return G_SOURCE_REMOVE;
 }
 
-static void
-on_position_updated (GtkWidget   *child,
-                  GParamSpec  *pspec,
-                  FldStackMenu *self)
+static gboolean
+emit_added (ModEmit *data)
 {
-  FldStackMenuPrivate *priv = fld_stack_menu_get_instance_private (self);
-  g_message ("Position stuff");
+  g_message ("Emit added");
+  g_menu_model_items_changed (data->model, data->position, 0, 1);
+  g_slice_free (ModEmit, data);
+  return G_SOURCE_REMOVE;
 }
 
-static void
-add_child (GtkWidget   *child,
-           FldStackMenu *self)
+static GHashTable *
+build_item (FldStackMenu *self,
+            GtkWidget    *child,
+            gint         *position)
 {
   g_assert (FLD_IS_STACK_MENU (self));
 
@@ -71,24 +65,87 @@ add_child (GtkWidget   *child,
   gtk_container_child_get_property (GTK_CONTAINER (priv->stack), child, "title", &title);
   const gchar *label = g_value_get_string (&title);
 
+  GValue hint = G_VALUE_INIT;
+  g_value_init (&hint, G_TYPE_BOOLEAN);
+  gtk_container_child_get_property (GTK_CONTAINER (priv->stack), child, "needs-attention", &hint);
+  gboolean attention = g_value_get_boolean (&hint);
+
+  if (attention)
+    label = g_strdup_printf ("%s @", label);
+
   GValue name = G_VALUE_INIT;
   g_value_init (&name, G_TYPE_STRING);
   gtk_container_child_get_property (GTK_CONTAINER (priv->stack), child, "name", &name);
   const gchar *target = g_value_get_string (&name);
 
+  g_message ("build_item for %s/%s", target, label);
+
   /* We can't control unnamed children, don't display it */
   if (!target)
-    return;
+    return NULL;
 
   GValue pos = G_VALUE_INIT;
   g_value_init (&pos, G_TYPE_INT);
   gtk_container_child_get_property (GTK_CONTAINER (priv->stack), child, "position", &pos);
-  gint position = g_value_get_int (&pos);
+  *position = g_value_get_int (&pos);
 
   GHashTable *item = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, (GDestroyNotify) g_variant_unref);
   g_hash_table_insert (item, g_strdup (G_MENU_ATTRIBUTE_ACTION), g_variant_ref_sink (g_variant_new_string ("switch.page")));
   g_hash_table_insert (item, g_strdup (G_MENU_ATTRIBUTE_TARGET), g_variant_ref_sink (g_variant_new_string (target)));
   g_hash_table_insert (item, g_strdup (G_MENU_ATTRIBUTE_LABEL), g_variant_ref_sink (g_variant_new_string (label)));
+
+  return item;
+}
+
+static void
+on_child_updated (GtkWidget   *child,
+                  GParamSpec  *pspec,
+                  FldStackMenu *self)
+{
+  g_message ("Child updated");
+  FldStackMenuPrivate *priv = fld_stack_menu_get_instance_private (self);
+
+  gint position = 0;
+  GHashTable *item = build_item (self, child, &position);
+
+  ModEmit *data = g_slice_new (ModEmit);
+  data->model = G_MENU_MODEL (self);
+  data->position = position;
+
+  g_array_remove_index (priv->items, position);
+  if (item)
+    {
+      g_array_insert_val (priv->items, position, item);
+      g_idle_add ((GSourceFunc) emit_modified, data);
+    }
+  else
+      g_idle_add ((GSourceFunc) emit_removed, data);
+}
+
+static void
+on_position_updated (GtkWidget   *child,
+                  GParamSpec  *pspec,
+                  FldStackMenu *self)
+{
+  g_message ("Position stuff");
+}
+
+static void
+add_child (GtkWidget   *child,
+           FldStackMenu *self)
+{
+  g_assert (FLD_IS_STACK_MENU (self));
+
+  g_message ("Add child");
+
+  FldStackMenuPrivate *priv = fld_stack_menu_get_instance_private (self);
+
+  gint position = 0;
+  GHashTable *item = build_item (self, child, &position);
+
+  if (!item)
+    return;
+
   g_array_insert_val (priv->items, position, item);
 
   g_signal_connect (child, "child-notify::title",
@@ -100,7 +157,11 @@ add_child (GtkWidget   *child,
   g_signal_connect (child, "child-notify::position",
                     G_CALLBACK (on_position_updated), self);
 
-  g_menu_model_items_changed (G_MENU_MODEL (self), position, 0, 1);
+  ModEmit *data = g_slice_new (ModEmit);
+  data->model = G_MENU_MODEL (self);
+  data->position = position;
+
+  g_idle_add ((GSourceFunc) emit_added, data);
 }
 
 static void
@@ -109,15 +170,27 @@ remove_child (GtkWidget   *child,
 {
   FldStackMenuPrivate *priv = fld_stack_menu_get_instance_private (self);
 
+  g_message ("Remove child");
+
   GValue pos = G_VALUE_INIT;
   g_value_init (&pos, G_TYPE_INT);
   gtk_container_child_get_property (GTK_CONTAINER (priv->stack), child, "position", &pos);
   gint position = g_value_get_int (&pos);
 
-  g_signal_handlers_disconnect_by_func (child, on_child_updated, self);
+  g_message ("Remove child (kinda) got pos %i", position);
 
-  priv->items = g_array_remove_index (priv->items, position);
-  g_menu_model_items_changed (G_MENU_MODEL (self), position, 1, 0);
+  g_signal_handlers_disconnect_by_func (child, on_child_updated, self);
+  g_signal_handlers_disconnect_by_func (child, on_position_updated, self);
+
+  g_array_remove_index (priv->items, position);
+
+  g_message ("Remove child removed");
+
+  ModEmit *data = g_slice_new (ModEmit);
+  data->model = G_MENU_MODEL (self);
+  data->position = position;
+
+  g_idle_add ((GSourceFunc) emit_removed, data);
 }
 
 static void
@@ -156,6 +229,16 @@ connect_stack_signals (FldStackMenu *self)
                           G_CALLBACK (on_stack_child_removed), self);
   g_signal_connect_swapped (priv->stack, "destroy",
                             G_CALLBACK (disconnect_stack_signals), self);
+}
+
+static GtkStack *
+fld_stack_menu_real_get_stack (FldStackMenu *self)
+{
+  FldStackMenuPrivate *priv = fld_stack_menu_get_instance_private (self);
+
+  g_assert (FLD_IS_STACK_MENU (self));
+
+  return priv->stack;
 }
 
 static void

@@ -71,12 +71,16 @@ fld_switcher_real_set_stack (FldSwitcher *self,
   g_assert (GTK_IS_STACK (stack));
 
   FldSwitcherPrivate *priv = fld_switcher_get_instance_private (self);
+
+  if (priv->stack)
+    disconnect_stack_signals (self);
   priv->stack = stack;
 
   gtk_stack_switcher_set_stack (GTK_STACK_SWITCHER (priv->switcher), stack);
-  fld_stack_menu_set_stack (priv->menu, stack);
   connect_stack_signals (self);
   on_child_changed (GTK_WIDGET (priv->stack), NULL, self);
+
+
 }
 
 static void
@@ -197,6 +201,7 @@ on_state_changed (GSimpleAction *act,
                   GVariant      *param,
                   FldSwitcher   *self)
 {
+  g_message ("State changed");
   g_return_if_fail (FLD_IS_SWITCHER (self));
   FldSwitcherPrivate *priv = fld_switcher_get_instance_private (self);
 
@@ -248,6 +253,8 @@ fld_switcher_init (FldSwitcher *self)
 
   priv->menu = fld_stack_menu_new ();
   gtk_menu_button_set_menu_model (GTK_MENU_BUTTON (priv->selector), G_MENU_MODEL (priv->menu));
+
+  g_object_bind_property (self, "stack", priv->menu, "stack", 0);
 }
 
 /**
@@ -280,7 +287,7 @@ fld_switcher_set_stack (FldSwitcher *self,
 
   FLD_SWITCHER_GET_CLASS (self)->set_stack (self, stack);
 
-  g_object_notify (G_OBJECT (self), "stack");
+  g_object_notify_by_pspec (G_OBJECT (self), properties [PROP_STACK]);
 }
 
 GtkWidget *

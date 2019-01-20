@@ -6,10 +6,26 @@ class Win : Fld.ApplicationWindow {
     [GtkChild]
     Gtk.Stack content;
 
+    [GtkChild]
+    Gtk.Button rem;
+
+    [GtkChild]
+    Gtk.Button end;
+
     construct {
         bind_property ("compact", label, "visible");
         content.add (new Gtk.Label ("&"));
         content.add (new Gtk.Label ("%"));
+
+        rem.clicked.connect (() => content.visible_child.destroy ());
+        end.clicked.connect (() => {
+            var curr = content.visible_child;
+            Value title;
+            content.child_get_property(curr, "title", ref title);
+            content.remove (curr);
+            content.add_titled (curr, "r%u".printf(Random.next_int ()), title as string);
+            curr.show ();
+        });
     }
 
     public Win (App app) {
